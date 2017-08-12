@@ -1,3 +1,5 @@
-# three_wheel_robot
+The controller for a two wheeled robot equipped with a differential steering
+drive system.
+Includes:
+Nodes: PWM, Interface, Velocity Controlle
 
-The controller and simulator of the three wheel robot
