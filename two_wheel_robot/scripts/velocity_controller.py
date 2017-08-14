@@ -44,14 +44,12 @@ class turtle():
         Kp_angular1 = .5
         goalvelocity = Twist()
         while (self.getdistance(goalpose) >= goaltolerance) and (not rospy.is_shutdown()):
-        #while (self.getdistance(goalpose) >= goaltolerance) and (not rospy.is_shutdown):
-            goalvelocity.linear.x = Kp_linear*sqrt((goalpose.x - self.pose.x)**2 + (goalpose.y - self.pose.y)**2)
+            goalvelocity.linear.x = round( Kp_linear*sqrt((goalpose.x - self.pose.x)**2 + (goalpose.y - self.pose.y)**2) ,5)
             goalvelocity.linear.y = 0
             goalvelocity.linear.z = 0
             goalvelocity.angular.x = 0
             goalvelocity.angular.y = 0
-            goalvelocity.angular.z = Kp_angular1*((atan2((goalpose.y-self.pose.y),(goalpose.x-self.pose.x))) - self.pose.theta)  
-
+            goalvelocity.angular.z = round( Kp_angular1*((atan2((goalpose.y-self.pose.y),(goalpose.x-self.pose.x))) - self.pose.theta) ,5)
             self.vel_publisher.publish(goalvelocity)
             self.test_publisher.publish(goalvelocity)
             self.rate.sleep()
@@ -61,8 +59,7 @@ class turtle():
         while (abs(goalpose.theta - self.pose.theta) >= 0.05) and (not rospy.is_shutdown()):
             goalvelocity.linear.x = 0
             goalvelocity.linear.y = 0
-            goalvelocity.angular.z = Kp_angular2*(goalpose.theta - self.pose.theta)        
-
+            goalvelocity.angular.z = round( Kp_angular2*(goalpose.theta - self.pose.theta)  , 5)
             self.vel_publisher.publish(goalvelocity)
             self.test_publisher.publish(goalvelocity)
             self.rate.sleep()
