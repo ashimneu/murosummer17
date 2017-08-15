@@ -8,10 +8,10 @@ from geometry_msgs.msg import Twist
 
 class turtle():
     def __init__(self):
-        rospy.init_node('motor_controller', anonymous=True)
+        rospy.init_node('velocity_controller', anonymous=True)
         self.pose = Pose()
         self.twist_msg = Twist()
-        self.vel_publisher = rospy.Publisher('interface/cmd_vel', Twist, queue_size=1)
+        self.vel_publisher = rospy.Publisher('controller/cmd_vel', Twist, queue_size=1)
         self.test_publisher = rospy.Publisher('turtle1/cmd_vel', Twist, queue_size = 1)
         self.pose_subscriber = rospy.Subscriber('turtle1/pose', Pose, self.pose_callback)
         self.rate = rospy.Rate(5)

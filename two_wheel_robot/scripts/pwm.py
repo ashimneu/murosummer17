@@ -60,7 +60,7 @@ def cleanup_pins():
 def pwm():
 
     rospy.init_node('pwm')
-    rospy.Subscriber('pwm/speeds', Speeds, callback)
+    rospy.Subscriber('interface/speeds', Speeds, callback)
 
     init_pins()
 

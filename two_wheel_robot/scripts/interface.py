@@ -72,8 +72,8 @@ def main():
     rospy.init_node('interface', anonymous= True)
     global pub
     global sub
-    pub = rospy.Publisher("pwm/speeds", Speeds,queue_size = 1)
-    sub = rospy.Subscriber('interface/cmd_vel', Twist, callback)
+    pub = rospy.Publisher("interface/speeds", Speeds,queue_size = 1)
+    sub = rospy.Subscriber('controller/cmd_vel', Twist, callback)
     
     while not rospy.is_shutdown():
         rospy.spin()
