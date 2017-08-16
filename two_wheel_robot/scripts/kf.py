@@ -4,10 +4,74 @@ from math import atan2, sqrt
 
 import numpy as np
 import rospy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Vector3, PoseWithCovarianceStamped
+import time
+import tf
 from std_msgs.msg import String
 from two_wheel_robot.msg import Pose
 
+
+# Thanks to Ramon for his camera_listener class
+#-----------------------------------------------------------------------------------------------------
+# listener class (comes from camera node)
+class camera_listener(object):
+
+	def __init__(self):
+		
+        #world frame position
+		self.x = 0.0
+		self.y = 0.0
+		self.z = 0.0
+		#quaternions
+		self.quaternion_x = 0.0
+		self.quaternion_y = 0.0
+		self.quaternion_z = 0.0
+		self.quaternion_w = 0.0
+		#world frame orientation
+		self.theta_x = 0.0
+		self.theta_y = 0.0
+		self.theta_z = 0.0
+		#covariance matrix
+		self.cov = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+
+	def callback(self,data):	
+
+        #free space position 
+		self.x = data.pose.pose.position.x
+		self.y = data.pose.pose.position.y
+		self.z = data.pose.pose.position.z
+        #angular orientation in quaternions
+		self.quaternion_x = data.pose.pose.orientation.x
+		self.quaternion_y = data.pose.pose.orientation.y
+		self.quaternion_z = data.pose.pose.orientation.z
+		self.quaternion_w = data.pose.pose.orientation.w
+        # define an array with quaternions
+		quaternion = (self.quaternion_x,
+							self.quaternion_y,
+							self.quaternion_z,
+							self.quaternion_w)
+
+        # define obtain euler angles in radians
+		euler = tf.transformations.euler_from_quaternion(quaternion)
+		self.theta_x = euler[0]
+		self.theta_y = euler[1]
+		self.theta_z = euler[2]
+
+        #covarince matrix from camera
+		self.cov = [data.pose.covariance[0:6],
+				[data.pose.covariance[6:12]],
+				[data.pose.covariance[12:18]],
+				[data.pose.covariance[18:24]],
+				[data.pose.covariance[24:30]],
+				[data.pose.covariance[30:36]]]
+
+        filter.getmeasurement_pose()
+#-----------------------------------------------------------------------------------------------------
 
 class kf():
     def __init__(self):
@@ -19,10 +83,10 @@ class kf():
         
         self.cmd_vel = Twist()
    
-    def sensorPose_callback(self, measurement_pose):
-        Z[0] = round(camera_pose.x,4)
-        Z[1] = round(camera_pose.y,4)
-        Z[2] = round(camera_pose.theta,4)
+    def getmeasurement_pose(self):
+        Z = [[measurement_pose.x],
+			[measurement_pose.y],
+			[measurement_pose.theta_z]]
         got_pose = True
         return 
 
@@ -68,7 +132,7 @@ class kf():
                 R[1,1] = 1000
                 R[2,2] = 1000
 
-            # in static view 
+            # 
             U[0] = cmd_vel.linear.x
             U[1] = cmd_vel.linear.y
             U[2] = cmd_vel.angular.z           
@@ -97,13 +161,10 @@ class kf():
                 got_pose = False
             else:              
                 X_t_t = X_T_t
-
-
-
-
-            
+         
             self.pose_publisher.publish(pose)
             self.rate.sleep()
+
 
 
 if __name__ == '__main__':
@@ -112,7 +173,12 @@ if __name__ == '__main__':
         global got_pose
         global Z
         global U
+        global measurement_pose
 
+        measurement_pose = camera_listener()
+        rospy.Subscriber('/ram/amcl_pose',PoseWithCovarianceStamped,measurement_pose.callback)
+
+        
         Z = np.array([0,0,0])
         U = np.array([0,0,0])  
 
