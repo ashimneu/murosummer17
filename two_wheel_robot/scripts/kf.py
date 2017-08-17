@@ -68,17 +68,16 @@ class camera_listener(object):
 				[data.pose.covariance[18:24]],
 				[data.pose.covariance[24:30]],
 				[data.pose.covariance[30:36]]]
-
-        filter.getmeasurement_pose()
+        #kalman.getmeasurement_pose()
 #-----------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------
 
-class kf():
+class kf(object):
     def __init__(self):
         rospy.init_node('kf', anonymous=True)
         self.pose_publisher = rospy.Publisher('kf/pose', Pose, queue_size=1)
         self.controller_cmdVel_subscriber = rospy.Subscriber('controller/cmd_vel', Twist, self.cmd_vel_callback)
-        self.sensorPose_subscriber = rospy.Subscriber('turtle1/pose', Pose, self.sensorPose_callback)
+        #self.sensorPose_subscriber = rospy.Subscriber('turtle1/pose', Pose, self.sensorPose_callback)
         self.rate = rospy.Rate(10)
         self.cmd_vel = Twist()
                 
@@ -86,12 +85,13 @@ class kf():
         self.cmd_Vel_G = np.zeros(3)
 
         self.Z_T = np.zeros(0)
+        
 
 
     def getmeasurement_pose(self):
-        self.Z_T = [[measurement_pose.x],
-			[measurement_pose.y],
-			[measurement_pose.theta_z]]
+        #self.Z_T = [[measurement_pose.x],
+		#	[measurement_pose.y],
+		#	[measurement_pose.theta_z]]
         got_pose = True
         return 
 
@@ -100,11 +100,11 @@ class kf():
         V = np.array([cmd_vel_R.linear.x, cmd_vel_R.linear.y, cmd_vel_R.angular.z])
 
         # Angle between robot reference & global reference frame
-        theta = self.robotPose_G.theta 
+        theta = self.robotPose_G[2]
 
         # Transformation Matrix to convert cmd_vel from robot  
         # reference frame to global reference frame
-        TM = np.array([cos(theta),-sin(theta),0],[sin(theta),cos(theta),0],[0,0,1])
+        TM = np.array([[cos(theta),-sin(theta),0],[sin(theta),cos(theta),0],[0,0,1]])
 
         self.cmd_Vel_G = np.dot(TM,V)
 
@@ -112,8 +112,10 @@ class kf():
 
     def compute(self):
         print('initiating kalman filter')
+        robotPose_G = Pose()
+        dt = 0
         A = np.identity(3)
-        B = np.array([dt,0,0],[0,dt,0],[0,0,dt])
+        B = np.array([[dt,0,0],[0,dt,0],[0,0,dt]])
         H = np.identity(3)
         
 
@@ -123,11 +125,11 @@ class kf():
         X_t = np.array([0,0,0]) # true X at time t-1
         X_t_t = np.array([0,0,0]) # a posteriori at time t-1
 
-        P_T_T = np.array([0,0,0],[0,0,0],[0,0,0])
-        P_T_t = np.array([0,0,0],[0,0,0],[0,0,0])
-        P_t_t = np.array([0,0,0],[0,0,0],[0,0,0])
+        P_T_T = np.array([[0,0,0],[0,0,0],[0,0,0]])
+        P_T_t = np.array([[0,0,0],[0,0,0],[0,0,0]])
+        P_t_t = np.array([[0,0,0],[0,0,0],[0,0,0]])
 
-        k_T = np.array([0,0,0],[0,0,0],[0,0,0])
+        k_T = np.array([[0,0,0],[0,0,0],[0,0,0]])
 
         Q = np.identity(3)
         Q[0,0] = 0.01
@@ -135,7 +137,7 @@ class kf():
         Q[2,2] = 0.01
         
         R = np.identity(3) 
-        I = np.array([1,0,0],[0,1,0],[0,0,1])
+        I = np.array([[1,0,0],[0,1,0],[0,0,1]])
         
         got_pose = False
         
@@ -189,23 +191,31 @@ class kf():
                 self.robotPose_G = X_t_t
 
          
+            robotPose_G.x = self.robotPose_G[0]
+            robotPose_G.y = self.robotPose_G[1]
+            robotPose_G.theta = self.robotPose_G[2]
             self.pose_publisher.publish(robotPose_G)
             self.rate.sleep()
 
+def main():
+    #global variables
+    global got_pose
+    global kalman
+    kalman = kf()
+
+    global measurement_pose
+    measurement_pose = camera_listener()
+    rospy.Subscriber('/ram/amcl_pose',PoseWithCovarianceStamped,measurement_pose.callback)
+        
+    #global t1, t2, dt
+    
+    
+    kalman.compute()
+    return
 
 
 if __name__ == '__main__':
     try:
-        #global variables
-        global got_pose
-
-        global measurement_pose
-        measurement_pose = camera_listener()
-        rospy.Subscriber('/ram/amcl_pose',PoseWithCovarianceStamped,measurement_pose.callback)
-        
-        #global t1, t2, dt
-
-        filter = kf()
-        filter.compute()
+        main()
     except rospy.ROSInterruptException:
         pass
