@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-from math import atan2, sqrt
-
+from math import pow, atan2, sqrt, cos, sin, asin, pi
 import numpy as np
 import rospy
 from geometry_msgs.msg import Twist, Vector3, PoseWithCovarianceStamped
@@ -72,36 +71,51 @@ class camera_listener(object):
 
         filter.getmeasurement_pose()
 #-----------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------
 
 class kf():
     def __init__(self):
         rospy.init_node('kf', anonymous=True)
         self.pose_publisher = rospy.Publisher('kf/pose', Pose, queue_size=1)
-        self.controller_cmdVel_subscriber = rospy.Subscriber('controller/cmd_vel', Twist, self.controller_cmdVel_callback)
+        self.controller_cmdVel_subscriber = rospy.Subscriber('controller/cmd_vel', Twist, self.cmd_vel_callback)
         self.sensorPose_subscriber = rospy.Subscriber('turtle1/pose', Pose, self.sensorPose_callback)
-        self.rate = rospy.Rate(5)
-        
+        self.rate = rospy.Rate(10)
         self.cmd_vel = Twist()
-   
+                
+        self.robotPose_G = np.zeros(3) #Pose in global reference frame
+        self.cmd_Vel_G = np.zeros(3)
+
+        self.Z_T = np.zeros(0)
+
+
     def getmeasurement_pose(self):
-        Z = [[measurement_pose.x],
+        self.Z_T = [[measurement_pose.x],
 			[measurement_pose.y],
 			[measurement_pose.theta_z]]
         got_pose = True
         return 
 
-    def controller_cmdVel_callback(self,cmd_vel):
-        U[0] = cmd_vel.linear.x 
-        U[1] = cmd_vel.linear.y
-        U[2] = cmd_vel.angular.z
+    def cmd_vel_callback(self,cmd_vel_R):
+        #Assigning cmd_vel to local vector variable V
+        V = np.array([cmd_vel_R.linear.x, cmd_vel_R.linear.y, cmd_vel_R.angular.z])
+
+        # Angle between robot reference & global reference frame
+        theta = self.robotPose_G.theta 
+
+        # Transformation Matrix to convert cmd_vel from robot  
+        # reference frame to global reference frame
+        TM = np.array([cos(theta),-sin(theta),0],[sin(theta),cos(theta),0],[0,0,1])
+
+        self.cmd_Vel_G = np.dot(TM,V)
+
         return
 
     def compute(self):
         print('initiating kalman filter')
-        pose = Pose()
         A = np.identity(3)
-        B = np.identity(3)
+        B = np.array([dt,0,0],[0,dt,0],[0,0,dt])
         H = np.identity(3)
+        
 
         X_T = np.array([0,0,0]) # true X at time t
         X_T_T = np.array([0,0,0]) # a posteriori at time t
@@ -116,53 +130,66 @@ class kf():
         k_T = np.array([0,0,0],[0,0,0],[0,0,0])
 
         Q = np.identity(3)
+        Q[0,0] = 0.01
+        Q[1,1] = 0.01
+        Q[2,2] = 0.01
+        
         R = np.identity(3) 
         I = np.array([1,0,0],[0,1,0],[0,0,1])
         
         got_pose = False
         
+        t1 = time.time()
+        t2 = time.time()
+        
         while (not rospy.is_shutdown()):
 
             if (got_pose):
-                R[0,0] = 1
-                R[1,1] = 1
-                R[2,2] = 1
+                R[0,0] = 0.01
+                R[1,1] = 0.01
+                R[2,2] = 0.01
             else:
                 R[0,0] = 1000
                 R[1,1] = 1000
                 R[2,2] = 1000
 
-            # 
-            U[0] = cmd_vel.linear.x
-            U[1] = cmd_vel.linear.y
-            U[2] = cmd_vel.angular.z           
-
+             
+            U = self.cmd_Vel_G
+            Z_T = self.Z_T
+            
+            t2 = time.time()
+            dt = t2 - t1
 
             #Predictor Step Part I
-            X_T_t = np.dot(A,X_t_t) + np.dot(B,U)
+            X_T_t = np.add(np.dot(A,X_t_t) , np.dot(B,U))
+
+            t1 = time.time()
             
             if (got_pose):
-                P_T_t = np.dot(np.dot(A, P_t_t),A.transpose()) + Q
+                P_T_t = np.subtract( np.dot(np.dot(A, P_t_t),A.transpose()) , Q)
 
                 #Corrector Step Part II
                 Y_T_t = Z_T - np.dot(H, X_T_t)
 
                 numerator = np.dot(P_T_t, H.transpose())            
-                denominator = np.dot(np.dot(H, P_T_t) , H.transpose()) + R
+                denominator = np.add( np.dot(np.dot(H, P_T_t) , H.transpose()) , R)
                 K_T = np.dot(numerator, np.linalg.inv(inversed_denominator))
 
-                X_T_T = X_T_t + np.dot(K_T, Y_T_t)
+                X_T_T = np.add( X_T_t , np.dot(K_T, Y_T_t) )
                 P_T_T = np.dot(P_T_t, (I - np.dot(H,K_T)))
-                Y_T_T = Z_T - np.dot(H, X_T_T)
+                Y_T_T = np.subtract(Z_T , np.dot(H, X_T_T) )
 
                 X_t_t = X_T_T
                 P_t_t = P_T_T
+                self.robotPose_G = X_t_t
 
                 got_pose = False
             else:              
                 X_t_t = X_T_t
+                self.robotPose_G = X_t_t
+
          
-            self.pose_publisher.publish(pose)
+            self.pose_publisher.publish(robotPose_G)
             self.rate.sleep()
 
 
@@ -171,16 +198,12 @@ if __name__ == '__main__':
     try:
         #global variables
         global got_pose
-        global Z
-        global U
-        global measurement_pose
 
+        global measurement_pose
         measurement_pose = camera_listener()
         rospy.Subscriber('/ram/amcl_pose',PoseWithCovarianceStamped,measurement_pose.callback)
-
         
-        Z = np.array([0,0,0])
-        U = np.array([0,0,0])  
+        #global t1, t2, dt
 
         filter = kf()
         filter.compute()

@@ -14,7 +14,7 @@ class turtle():
         self.vel_publisher = rospy.Publisher('controller/cmd_vel', Twist, queue_size=1)
         self.test_publisher = rospy.Publisher('turtle1/cmd_vel', Twist, queue_size = 1)
         self.pose_subscriber = rospy.Subscriber('turtle1/pose', Pose, self.pose_callback)
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(10)
    
     def pose_callback(self, pose_msg):
         self.pose.x = round(pose_msg.x,3)
