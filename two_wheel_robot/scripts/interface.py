@@ -75,10 +75,31 @@ class Interface():
         self.VangularCurrent = Vangular
         return
 
+def testfunc():
+    speed = Speeds()
+    a = 10
+    speed.s1 = a
+    speed.s2 = a
+
+    while (True):
+        pub.publish(speed)
+    return
+
+def testmain():
+    rospy.init_node('interface', anonymous= True)
+    global pub
+    pub = rospy.Publisher("interface/speeds", Speeds,queue_size = 1)
+    testfunc()
+    while not rospy.is_shutdown():
+        rospy.spin()
+    return
+
+    
+
 
 def main():
-    rospy.init_node('interface', anonymous= True)     
-    interface1 = Interface()
+    #rospy.init_node('interface', anonymous= True)     
+    #interface1 = Interface()
     
     while not rospy.is_shutdown():
         rospy.spin()
@@ -86,6 +107,7 @@ def main():
 
 if __name__ == '__main__':
     try:
-        main()
+        #main()
+        testmain()
     except rospy.ROSInterruptException:
         pass

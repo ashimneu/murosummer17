@@ -38,9 +38,8 @@ class camera_listener(object):
 				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
 				[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
 
-	def callback(self,data):	
-
-        #free space position 
+	def callback(self,data):
+        #free space position
 		self.x = data.pose.pose.position.x
 		self.y = data.pose.pose.position.y
 		self.z = data.pose.pose.position.z
@@ -68,13 +67,13 @@ class camera_listener(object):
 				[data.pose.covariance[18:24]],
 				[data.pose.covariance[24:30]],
 				[data.pose.covariance[30:36]]]
-        #kalman.getmeasurement_pose()
 #-----------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------
 
 class kf(object):
     def __init__(self):
         rospy.init_node('kf', anonymous=True)
+        self.measurement_pose = camera_listener()
         self.pose_publisher = rospy.Publisher('kf/pose', Pose, queue_size=1)
         self.controller_cmdVel_subscriber = rospy.Subscriber('controller/cmd_vel', Twist, self.cmd_vel_callback)
         #self.sensorPose_subscriber = rospy.Subscriber('turtle1/pose', Pose, self.sensorPose_callback)
@@ -86,12 +85,14 @@ class kf(object):
 
         self.Z_T = np.zeros(0)
         
-
+    def callback(self,data):
+        self.measurement_listener.callback(data)
+        self.getmeasurement_pose()
 
     def getmeasurement_pose(self):
-        #self.Z_T = [[measurement_pose.x],
-		#	[measurement_pose.y],
-		#	[measurement_pose.theta_z]]
+        self.Z_T = [[self.measurement_pose.x],
+			[self.measurement_pose.y],
+			[self.measurement_pose.theta_z]]
         got_pose = True
         return 
 
@@ -200,12 +201,10 @@ class kf(object):
 def main():
     #global variables
     global got_pose
-    global kalman
+    #global kalman
     kalman = kf()
-
-    global measurement_pose
-    measurement_pose = camera_listener()
-    rospy.Subscriber('/ram/amcl_pose',PoseWithCovarianceStamped,measurement_pose.callback)
+    #measurement_pose = camera_listener()
+    rospy.Subscriber('/ram/amcl_pose',PoseWithCovarianceStamped,kalman.callback)
         
     #global t1, t2, dt
     
